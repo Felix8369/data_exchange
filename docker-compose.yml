@@ -1,0 +1,94 @@
+version: '3'
+
+services:
+    mysql:
+        container_name: ${DEX_MYSQL_NAME}
+        image: mysql:5.7
+        ports:
+            - "${DEX_MYSQL_PORT}:3306"
+        volumes:
+            - ./mysql_data:/var/lib/mysql
+            - ./mount_file/mysql:/docker-entrypoint-initdb.d
+            - /etc/localtime:/etc/localtime:ro
+        environment:
+            - MYSQL_DATABASE=${DEX_MYSQL_DB_NAME}
+            - MYSQL_USER=${DEX_MYSQL_USER}
+            - MYSQL_PASSWORD=${DEX_MYSQL_PASS}
+            - MYSQL_ROOT_PASSWORD=${DEX_MYSQL_ROOT_PASS}
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "200m"
+                max-file: "2"
+        networks:
+            tq_network:
+                ipv4_address: ${DEX_MYSQL_IP_ADDR}
+        privileged: true
+        restart: always
+
+    nginx:
+        container_name: ${DEX_NGINX_NAME}
+        image: nginx:1.17
+        ports:
+            - "${DEX_NGINX_HTTP_PORT}:80"
+            - "${DEX_NGINX_HTTPS_PORT}:443"
+        volumes:
+            - ./mount_file/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+            - ./mount_file/nginx/localhost.crt:/usr/share/nginx/certs/localhost.crt:ro
+            - ./mount_file/nginx/localhost.key:/usr/share/nginx/certs/localhost.key:ro
+            - ./frontend/dist:/usr/share/nginx/html:ro
+            - ./uploads:/usr/share/nginx/uploads:ro
+            - /etc/localtime:/etc/localtime:ro
+        links:
+            - "backend:backend"
+        depends_on:
+            - backend
+        networks:
+            tq_network:
+                ipv4_address: ${DEX_NGINX_IP_ADDR}
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "200m"
+                max-file: "2"
+        privileged: true
+        restart: always
+
+    backend:
+        container_name: ${DEX_BACKEND_NAME}
+        build:
+            context: ./
+            dockerfile: ./docker_file/backend/Dockerfile
+        ports:
+            - "${DEX_BACKEND_PORT}:5000"
+        environment:
+            - MYSQL_URI=${DEX_BACKEND_MYSQL_URI}
+        volumes:
+            - ./app:/opt/tq/app
+            - ./logs:/opt/tq/logs
+            - ./uploads:/opt/tq/uploads
+            - ./main.py:/opt/tq/main.py:ro
+            - ./wsgi.ini:/opt/tq/wsgi.ini:ro
+            - /etc/localtime:/etc/localtime:ro
+        links:
+            - "mysql:mysql"
+        depends_on:
+            - "mysql"
+        command: ["uwsgi", "--ini", "wsgi.ini"]
+        networks:
+            tq_network:
+                ipv4_address: ${DEX_BACKEND_IP_ADDR}
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "500m"
+                max-file: "2"
+        privileged: true
+        restart: always
+
+networks:
+    tq_network:
+        driver: bridge
+        ipam:
+           config:
+              - subnet: ${DEX_SUBNET}

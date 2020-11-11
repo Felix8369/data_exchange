@@ -1,0 +1,101 @@
+import os
+import logging.config
+from flask import request
+from cloghandler import ConcurrentRotatingFileHandler
+
+base_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+logging.RotatingFileHandler = ConcurrentRotatingFileHandler  # 避免多进程日志混乱
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record):
+        record.url = request.url if request else ""
+        record.remote_addr = request.remote_addr if request else ""
+        return True
+
+
+class DefaultConfig(object):
+    """ 配置 """
+
+    DEBUG = True
+
+    SECRET_KEY = "dsuihfo67890-_)(&*^%$#!@esdnl.54245204"
+
+    USER_VALIDITY = 3600
+
+    # flask-sqlalchemy
+    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:DEX@#$DEX@172.0.0.3:3306/dex'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
+    SQLALCHEMY_POOL_SIZE = 5
+    # SQLALCHEMY_POOL_TIMEOUT = 300
+    SQLALCHEMY_POOL_RECYCLE = 3600
+
+    # directory
+    BASE_DIR = base_path
+    UPLOAD_DIR = os.path.join(base_path, 'uploads')
+
+    LOG = {
+        'version': 1,
+        'filters': {
+            'url': {"()": RequestIDFilter},
+            'remote_addr': {"()": RequestIDFilter},
+        },
+        'formatters': {
+            'simple': {
+                'format': '[%(asctime)s] - %(thread)d - %(levelname)s - %(pathname)s - %(lineno)d - %(message)s',
+            },
+            'request': {
+                'format': '[%(asctime)s] %(remote_addr)s requested %(url)s\n %(levelname)s in %(pathname)s %(lineno)d: %(message)s'
+            }
+
+            # 其他的 formatter
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': 'DEBUG',
+                # 'filters': ["remote_addr", "url"],  # 这里使用上面的filter: request_id
+                'formatter': 'simple'
+            },
+            'task': {
+                'class': 'logging.RotatingFileHandler',
+                'filename': os.path.join(BASE_DIR, "logs/task.log"),
+                'level': 'DEBUG',
+                'filters': ["remote_addr", "url"],  # 这里使用上面的filter: request_id
+                'formatter': 'simple',
+                'maxBytes': 1024 * 1024 * 30,  # 文件大小 30M
+                'backupCount': 10,
+                'encoding': "utf-8"
+            },
+            'request': {
+                'class': 'logging.RotatingFileHandler',
+                'filename': os.path.join(BASE_DIR, "logs/request.log"),
+                'level': 'DEBUG',
+                'filters': ["remote_addr", "url"],  # 这里使用上面的filter: request_id
+                'formatter': 'request',
+                'maxBytes': 1024 * 1024 * 30,  # 文件大小 30M
+                'backupCount': 10,
+                'encoding': "utf-8"
+            }
+        },
+        'loggers': {
+            'StreamLogger': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+            },
+            'task': {
+                # 既有 console Handler，还有 file Handler
+                'handlers': ['console', 'task'],
+                'level': 'DEBUG',
+            },
+            'app': {
+                # 既有 console Handler，还有 file Handler
+                'handlers': ['console', 'request'],
+                'level': 'DEBUG',
+            }
+        }
+    }
+
+
+logging.config.dictConfig(DefaultConfig.LOG)
