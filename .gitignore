@@ -10,7 +10,7 @@ __pycache__
 .vscode/
 app/settings.py
 
-frontend/dist/
+
 mysql_data/
 *.log
 .coverage
