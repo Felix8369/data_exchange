@@ -7,7 +7,7 @@ from app.services.response import res_json
 from app.repositories.user import UserRepository
 from app.utils.hash import gen_md5
 from app.utils.helpers import get_client_ip, not_empty_string, genrate_jwt_token
-from app.utils.files import remove_file_by_link, check_image_extension, save_uploaded_image
+from app.utils.files import remove_file_by_link, save_uploaded_image
 from app.services.decorators import api_auth
 
 
@@ -104,9 +104,9 @@ class AuthProfileResource(ApiResource):
             args['new_password'] = g.user.password
 
         # 检查头像后缀
-        if args.get('image') is not None:
-            if not check_image_extension(args.get('image')):
-                return res_json(code='invalid_image_extension')
+        # if args.get('image') is not None:
+        #     if not check_image_extension(args.get('image')):
+        #         return res_json(code='invalid_image_extension')
 
         old_image = g.user.image
         try:
@@ -124,9 +124,9 @@ class AuthProfileResource(ApiResource):
         if args.get('image') is not None:
             remove_file_by_link(current_app, old_image)
 
-        # 添加日志
-        UserLogRepository.create_user_log(g.user.id, g.user.id, UserLogModel.TYPE_USER, UserLogModel.ACTION_UPDATE,
-                                          get_client_ip(request))
+        # # 添加日志
+        # UserLogRepository.create_user_log(g.user.id, g.user.id, UserLogModel.TYPE_USER, UserLogModel.ACTION_UPDATE,
+        #                                   get_client_ip(request))
 
         # 返回更新后的用户信息
         user = UserRepository.get_user_by_id(g.user.id)
